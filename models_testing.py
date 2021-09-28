@@ -4,7 +4,8 @@ import seaborn as sns
 import numpy as np
 from time import time
 
-from sklearn.model_selection import train_test_split, KFold, cross_validate
+from sklearn.model_selection import train_test_split, KFold, cross_validate, \
+    StratifiedShuffleSplit
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.tree import DecisionTreeClassifier
@@ -16,7 +17,9 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import confusion_matrix, classification_report, \
     recall_score
 
-from imblearn.under_sampling import RandomUnderSampler
+from imblearn.under_sampling import RandomUnderSampler, TomekLinks, \
+    EditedNearestNeighbours
+from imblearn.over_sampling import RandomOverSampler
 from imblearn.ensemble import BalancedBaggingClassifier, \
     BalancedRandomForestClassifier, EasyEnsembleClassifier
 from imblearn.pipeline import make_pipeline as imblearn_pipeline
@@ -53,7 +56,8 @@ def fitEstimatorWithSamplerWithCV(X, y, cv = None,
     
     model = imblearn_pipeline(MinMaxScaler(), sampler, estimator)
     if cv is None:
-        cv = KFold(n_splits = 3, shuffle = True, random_state = 100)
+        cv = StratifiedShuffleSplit(train_size = 0.25,
+                                    random_state = 111)
     results = cross_validate(model, X, y, cv = cv,
                              return_train_score = True,
                              return_estimator = True,
@@ -64,6 +68,21 @@ def fitEstimatorWithSamplerWithCV(X, y, cv = None,
           f"{results['test_score'].mean()} +/- {results['test_score'].std()}")
     bestEstimator = results['estimator'][np.argmax(results['test_score'])]
     return bestEstimator
+
+def fitMultipleEstimatorsWithCV(X, y, estimator_dict,
+    sampler = RandomUnderSampler(random_state = 111),
+    cv = StratifiedShuffleSplit(n_splits = 4, train_size = 0.25,
+                                random_state = 111)):
+    fit_estimators = []
+    for name, estimator in estimator_dict.items():
+        print(f'Started training {name} with {sampler}.')
+        start = time()
+        fit_estimator = fitEstimatorWithSamplerWithCV(
+            X, y, cv = cv, sampler = sampler, estimator = estimator)
+        end = time()
+        print(f'Finished training {name} in {end-start} seconds. \n')
+        fit_estimators.append(fit_estimator)
+    return fit_estimators
 
 def fitEstimatorWithSamplerWithoutCV(X_train, y_train, 
         sampler = RandomUnderSampler(random_state = 111),
@@ -105,7 +124,7 @@ def scoreBalancedEstimator(estimator, X_test, y_test, verbose = 0):
         print(classification_report(y_true = y_test, y_pred = pred), '\n')
     return pred
 
-def scoreMultipleEstimators(y_test, fitted_estimators):
+def scoreMultipleEstimators(X_test, y_test, fitted_estimators):
     ''' 
     for each estimator, print the recall and store its predictions
     return predictions for later use (other metrics)
@@ -138,9 +157,10 @@ X = pd.read_csv('RF_important_features.csv.gzip', compression = 'gzip')
 y = pd.read_csv('y.csv')
 y = y.values.reshape(-1)
 
+
+# %% a one time 75/25 split
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, train_size = 0.75, random_state = 111, shuffle = True)
-
 
 # %% testing individual models
 estimator_dict = {
@@ -248,6 +268,7 @@ imbalanced_ensemble_predictions = scoreMultipleEstimators(
 #  0.6693237707193055
 
 
+
 # %% new: VotingClassifier and StackedClassifier
 individual_pipelines = [imblearn_pipeline(MinMaxScaler(), 
                    RandomUnderSampler(random_state = 111),
@@ -265,9 +286,80 @@ v = VotingClassifier(estimators = list(zip(
 v.fit(X_train, y_train)
 voter_predictions = v.predict(X_test)
 
-# better than DT, SVC, SGDC, slightly better than LR, but worse than MLP
+# better than DT, SVC, slightly better than LR, but worse than SGDC and MLP
 print(recall_score(y_test, voter_predictions))
 # 0.6375606452544048
 
+# ---------------------------------------------------------------------
+# %% trying a train_size of 0.25 + StratifiedShuffleSplit
 
+ind_cv = fitMultipleEstimatorsWithCV(
+    X, y, estimator_dict, 
+    sampler = RandomUnderSampler(random_state = 111),
+    cv = StratifiedShuffleSplit(n_splits = 4, 
+                                train_size = 0.25, 
+                                random_state = 111))
 
+# Started training LR with RandomUnderSampler(random_state=111).
+# Average recall and standard deviation 
+# 0.6348872801027452 +/- 0.0005213785620505781
+# Finished training LR in 20.357626914978027 seconds. 
+
+# Started training DT with RandomUnderSampler(random_state=111).
+# Average recall and standard deviation 
+# 0.5642379424316111 +/- 0.000916049529759271
+# Finished training DT in 20.305978298187256 seconds. 
+
+# Started training ANN with RandomUnderSampler(random_state=111).
+# Average recall and standard deviation 
+# 0.6691455420955427 +/- 0.011965077509234824
+# Finished training ANN in 151.715106010437 seconds. 
+
+# Started training SVC with RandomUnderSampler(random_state=111).
+# Average recall and standard deviation 
+# 0.6315913658520336 +/- 0.0005496453884532532
+# Finished training SVC in 15.03044319152832 seconds. 
+
+# Started training SGDC with RandomUnderSampler(random_state=111).
+# Average recall and standard deviation 
+# 0.6759511146149092 +/- 0.03589493448214965
+# Finished training SGDC in 13.092419147491455 seconds.
+
+# ---------------------------------------------------------------------
+# %% other sampling techniques
+# tried TomekLinks, ENN with 0.25/0.75, didn't finish
+# tried with 0.1/0.9, didn't finish either
+# works quickly with 0.01/0.99, but it's pointless 
+
+# RandomUnderSampler > RandomOverSampler in terms of recall and time
+ind_os_cv = fitMultipleEstimatorsWithCV(
+    X, y, estimator_dict,
+    sampler = RandomOverSampler(random_state = 111),
+    cv = StratifiedShuffleSplit(n_splits = 4, 
+                                train_size = 0.25, 
+                                random_state = 111))
+
+# Started training LR with RandomOverSampler(random_state=111).
+# Average recall and standard deviation 
+# 0.6351935539985861 +/- 0.0005493345411437624
+# Finished training LR in 48.57807731628418 seconds. 
+
+# Started training DT with RandomOverSampler(random_state=111).
+# Average recall and standard deviation 
+# 0.26963761598620195 +/- 0.0017555558910426583
+# Finished training DT in 52.16799807548523 seconds. 
+
+# Started training ANN with RandomOverSampler(random_state=111).
+# Average recall and standard deviation 
+# 0.6761731863218632 +/- 0.015141963654061948
+# Finished training ANN in 1103.6012589931488 seconds. 
+
+# Started training SVC with RandomOverSampler(random_state=111).
+# Average recall and standard deviation 
+# 0.6316644644555727 +/- 0.0005961509814442347
+# Finished training SVC in 32.7990562915802 seconds. 
+
+# Started training SGDC with RandomOverSampler(random_state=111).
+# Average recall and standard deviation 
+# 0.5906857574310744 +/- 0.031092631065272963
+# Finished training SGDC in 14.984627962112427 seconds. 
