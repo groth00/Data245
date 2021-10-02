@@ -30,3 +30,16 @@ Heterogeneous (scikit): VotingClassifier w/majority vote using the individual mo
 Because the size of our dataset is large (>1.8 million rows), the other under and over sampling methods are unable to finish. Computationally, the other methods make use of varying nearest neighbor algorithms, which is too computationally expensive for the amount of features and rows. 
 
 One last note; RandomOverSampler is comparable to RandomUnderSampler in terms of recall for LR, MLP, and SVC. For DT and SGD, the results are worse. In addition, RandomOverSampler takes more significantly more time for all models except for SGD (which is just slightly slower).
+
+Update 3 (10/1): Tested VotingClassifier, StackingClassifier, RandomOverSampler
+
+When using VotingClassifier with a majority vote (hard vote), the same individual models were used as before. When using a soft vote, LinearSVC was substituted for ComplementNB and the loss for SGDClassifier is changed to modified_huber. These are changed because SVM classifiers lack a predict_proba method.
+
+Using uniform weights, VotingClassifier with hard vote outperforms soft vote. Recall improves slightly when adding in ensemble methods.
+
+StackingClassifier (individual + ensemble - SVM) performs better than VotingClassifier at the cost of longer training time.
+
+RandomOverSampler only benefits MLPClassifier slightly and degrades performance on the other 4 individual models.
+
+
+
