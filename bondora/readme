@@ -1,0 +1,12 @@
+10/16/21
+
+Changed to the Bondora dataset (https://ieee-dataport.org/open-access/bondora-peer-peer-lending-data#files)
+
+The main issue with the LendingClub dataset is that the quality of the data was not sufficient to train good models.
+Specifically, when testing several models:
+  LogisticRegression, LinearSVC, MLPClassifier, SGDClassifier, DecisionTreeClassifier, RandomForest, HistogramGradientBoostingClassifier
+the resulting accuracy (~0.5), AUC score (~0.5), and Matthews correlation coefficient (~0) were low. The models were no better than random guesses.
+
+The Bondora set also contains P2P lending data on loans from the period March 2009 - January 2020. 
+Extra preprocessing was done on the available dataset and features were selected using RandomForest.
+All classification models perform very well on this dataset.
