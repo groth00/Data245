@@ -9,4 +9,4 @@ the resulting accuracy (~0.5), AUC score (~0.5), and Matthews correlation coeffi
 
 The Bondora set also contains P2P lending data on loans from the period March 2009 - January 2020. 
 Extra preprocessing was done on the available dataset and features were selected using RandomForest.
-All classification models perform very well on this dataset.
+All classification models perform well on this dataset (to be updated later).
