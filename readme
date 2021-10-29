@@ -1,3 +1,33 @@
+10/28/21 - 10/29/21
+I took a closer look at the features (for data understanding purposes) and removed redundant/duplicate variables. 
+Then, I checked the correlation between the numerical variables; some features had stronger correlation such as Amount and MonthlyPayment.
+However, these pairs of variables weren't perfectly correlated and turned out to be useful/important according to RandomForest, so they were kept.
+After cleaning, the full dataset consisted of 130 variables while the truncuated dataset contained 19 "important" features from RandomForest.
+
+Estimators tested were LR, DT, MLP, SVC, SGD, HGB, and RF. HistGradientBoosting and RandomForest performed similarly and outperformed the base models.
+This held for precision (~0.75), recall (~0.70), Matthew's correlation coefficient (~0.45), and AUC (~0.70).
+I also tested LightGBM, which was the inspiration for scikit-learn's HistogramGradientBoostingClassifier.
+Essentially, its performance was identical to HistGradientBoosting.
+
+Then, the best models (HGB, RF, GBM) were tuned using HalvingGridSearchCV.
+There are more details in the script, but generally the learning rate, tree depth, and regularization parameters were tuned.
+Performance uplift from hyperparameter tuning was very small.
+
+I used the plotting functions from scikit-learn's metrics module to display the confusion matrices, roc_auc_curves, and precision recall curves.
+Also, RF and GBM have feature importances built in, so those were extracted and plotted as well. 
+Finally, the individual decision trees from RF can be plotted invidually, so I went ahead and did that.
+
+RandomForest was slightly better than the boosting models:
+Macro-averaged precision 0.76
+Macro-averaged recall 0.72
+Matthew's corrcoef 0.48
+AUC 0.72
+
+Important features are mostly numerical, such as Interest, Age, IncomeTotal, and MonthlyPayment.
+
+
+
+
 10/16/21
 
 Changed to the Bondora dataset (https://ieee-dataport.org/open-access/bondora-peer-peer-lending-data#files)
@@ -9,4 +39,3 @@ the resulting accuracy (~0.5), AUC score (~0.5), and Matthews correlation coeffi
 
 The Bondora set also contains P2P lending data on loans from the period March 2009 - January 2020. 
 Extra preprocessing was done on the available dataset and features were selected using RandomForest.
-All classification models perform well on this dataset (to be updated later).
