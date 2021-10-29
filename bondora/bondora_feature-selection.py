@@ -9,7 +9,7 @@ from sklearn.ensemble import RandomForestClassifier
 plt.rcParams['figure.dpi'] = 300
 
 # %%
-X = pd.read_csv('Bondora_cleaned.csv')
+X = pd.read_csv('BondoraCleanedUpdated.csv')
 y = X['Default'].values.reshape(-1) # 0 is paid, 1 is default
 X.drop(['Default'], axis = 1, inplace = True)
 
@@ -29,24 +29,25 @@ df_imp = pd.DataFrame.from_dict(importances,
                                 columns = ['importance'])
 
 sorted_features = df_imp['importance'].sort_values(ascending = False)
-to_plot = sorted_features[sorted_features > 0.01]
+important_vars = sorted_features[sorted_features > 0.01]
 
-ax = plt.subplot()
-sns.barplot(x = to_plot.values, y = to_plot.index, ax = ax)
-ax.set_title('Feature Importances')
+# ax = plt.subplot()
+# sns.barplot(x = important_vars.values, y = important_vars.index, ax = ax)
+# ax.set_title('Feature Importances')
 
 # %%
-# use the 20 most important features
-best_features = sorted_features[:20]
-o = best_features.index
+idx = important_vars.index
 
 ax = plt.subplot()
-sns.barplot(x = best_features.values, y = o, order = o, ax = ax)
+sns.barplot(x = important_vars.values, y = idx, order = idx, ax = ax)
 ax.set_title('Most Important Features')
-ax.set_yticklabels(labels = o, rotation = 0, fontsize = 7)
+ax.set_yticklabels(labels = idx, rotation = 0, fontsize = 7)
+
+X_new = X[idx]
+# sns.heatmap(X_new.corr(), center = 0)
 
 # %% Save lower-dimensional data
-feature_names = best_features.index
-X_new = X[feature_names]
-X_new.to_csv('BondoraTop20Features.csv', index = None)
+X_new.to_csv('BondoraTopFeatures.csv', index = None)
+pd.DataFrame(y, columns='label').to_csv('BondoraY.csv', index = None)
+
 
