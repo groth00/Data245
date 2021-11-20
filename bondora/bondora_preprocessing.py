@@ -63,8 +63,9 @@ for i, c in enumerate(cat_vars):
     print(cat_vars[i], len(df[c].unique()))
 
 # %% checking correlation between numerical variables
-numerical = df.columns[df.dtypes != 'object']
-num_vars = df[numerical]
+temp = df.copy()
+numerical = temp.columns[df.dtypes != 'object']
+num_vars = temp[numerical]
 sns.heatmap(num_vars.corr())
 
 # Amount is highly correlated with AppliedAmount and MonthlyPayment
@@ -89,6 +90,77 @@ for i, row in enumerate(corrs.values):
 
 for pair in correlated_feature_pairs:
     print(f'({num_vars.columns[pair[0]]}, {num_vars.columns[pair[1]]})')
+
+# %%
+'''bids (investment offers) manual, # of bids through api,
+age, applied amount, amount, interest (max interest rate accepted in the application),
+'''
+# outliers in age, liabilitiestotal
+
+# kdeplot
+v = ['BidsPortfolioManager', 'BidsApi', 'BidsManual',
+     'Interest', 'LoanDuration', 'MonthlyPayment',
+     'IncomeTotal', 'ExistingLiabilities',
+     'LiabilitiesTotal', 'DebtToIncome', 
+     'MonthlyPaymentDay', 
+     'PreviousEarlyRepaymentsCountBeforeLoan',]
+
+# boxplot
+b_vars = ['Age', 'Amount',
+          'LiabilitiesTotal']
+
+# %%
+to_plot = num_vars.sample(frac = 0.10, random_state = 111)
+
+# %%
+for col in v:
+    ax = plt.subplot()
+    sns.histplot(data = to_plot, x = col, hue = 'Default',
+                multiple = 'stack', ax = ax)
+    ax.set_title(f'{col}')
+    plt.show()
+    
+
+
+# %%
+y_to_plot = to_plot['Default'].astype(str)
+for col in b_vars:
+    ax = plt.subplot()
+    sns.boxplot(data = to_plot, x = col, y = y_to_plot,
+                ax = ax, order = ['0', '1'])
+    ax.set_title(f'{col}')
+    ax.set_xlabel('')
+    plt.show()
+    
+# %%
+selected = ['BidsPortfolioManager', 'Interest',
+            'MonthlyPayment', 'IncomeTotal']
+fig, axes = plt.subplots(nrows = 2, ncols = 2, figsize = (9, 9))
+for var, ax in zip(selected, axes.ravel()):
+    sns.boxplot(data = to_plot, x = var, y = y_to_plot,
+                ax = ax, order = ['0', '1'])
+
+    
+# %% drop outliers
+df.drop(df[df['Age'] < 18].index, axis = 0, inplace = True)
+df.drop(df[df['LiabilitiesTotal'] > 30000].index, axis = 0, inplace = True)
+
+# %%
+temp = df.copy()
+numerical = temp.columns[df.dtypes != 'object']
+num_vars = temp[numerical]
+new_sample = num_vars.sample(frac = 0.1, random_state = 0)
+
+# %%
+y_new = new_sample['Default'].astype(str)
+for col in b_vars:
+    ax = plt.subplot()
+    sns.boxplot(data = new_sample, x = col, y = y_new,
+                ax = ax)
+    ax.set_title(f'{col}')
+    ax.set_xlabel('')
+    plt.show()
+
 
 # %%
 missing = df.isna().sum().apply(lambda x: x / df.shape[0])\

@@ -3,29 +3,23 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import lightgbm as lgb
+import joblib
 from time import time
 
-from sklearn.model_selection import train_test_split, cross_validate, \
-    StratifiedShuffleSplit, HalvingGridSearchCV, StratifiedKFold
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.experimental import enable_halving_search_cv
+from sklearn.model_selection import train_test_split, \
+    StratifiedShuffleSplit, HalvingGridSearchCV
 from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.tree import DecisionTreeClassifier, plot_tree
 from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier, \
     HistGradientBoostingClassifier
 from sklearn.neural_network import MLPClassifier
-from sklearn.pipeline import make_pipeline
-from sklearn.metrics import classification_report, \
-    matthews_corrcoef, roc_auc_score, confusion_matrix, \
-    plot_confusion_matrix, plot_roc_curve, plot_precision_recall_curve, \
-    ConfusionMatrixDisplay, PrecisionRecallDisplay, RocCurveDisplay
+from sklearn.metrics import PrecisionRecallDisplay, RocCurveDisplay, \
+    confusion_matrix
 
-from helper_functions import fitEstimatorWithoutSampling, \
-    fitMultipleEstimatorsWithoutSampling, \
-    fitEstimatorWithoutSamplerWithCV, \
-    fitMultipleEstimatorsWithoutSamplerWithCV, \
-    scoreBalancedEstimator, \
-    scoreMultipleEstimators
+from helper_functions import fitMultipleEstimatorsWithoutSamplerWithCV, \
+    scoreMultipleEstimators, evaluateEstimator, evaluateEstimators
     
 plt.rcParams['figure.dpi'] = 300
     
@@ -55,15 +49,15 @@ all_estimators = {
     'HGBC': HistGradientBoostingClassifier(random_state = 111),
     'RF': RandomForestClassifier(
         n_estimators = 100, max_depth = None, bootstrap = True,
-        oob_score = True, n_jobs = -1, random_state = 111)}
+        oob_score = True, n_jobs = -1, random_state = 111),
+    'GBM': lgb.LGBMClassifier(random_state = 0, n_jobs = -1)}
 
 # %%
 estimators2 = {
     'HGBC': HistGradientBoostingClassifier(random_state = 0),
     'RF': RandomForestClassifier(
         n_estimators = 100, max_depth = None, bootstrap = True,
-        oob_score = True, n_jobs = -1, random_state = 0),
-    }
+        oob_score = True, n_jobs = -1, random_state = 0),}
 
 # %% 
 # I stick with all features since the results are slightly better
@@ -71,135 +65,22 @@ estimators2 = {
 X_train, X_test, y_train, y_test = train_test_split(
     X_original, y, train_size = 0.75, random_state = 0, shuffle = True)
 
+# %%
+X_train_small, X_test_small, y_train_small, y_test_small = train_test_split(
+    X, y, train_size = 0.75, random_state = 0, shuffle = True)
+
 # %% Note: I ran this with 19 vars, then ran RF and HGB with all vars
 cv = StratifiedShuffleSplit(n_splits = 5, train_size = 0.8, random_state = 0)
 fitted_scikit = fitMultipleEstimatorsWithoutSamplerWithCV(
     X_train, y_train, all_estimators, cv = cv)
-pred_scikit = scoreMultipleEstimators(X_test, y_test, fitted_scikit)
+
+scoreMultipleEstimators(fitted_scikit, X_test, y_test)
 
 # %%
-# ----------------------------
-# DONE USING 19 VARIABLES ONLY
-# ----------------------------
+fitted_scikit2 = fitMultipleEstimatorsWithoutSamplerWithCV(
+    X_train_small, y_train_small, all_estimators, cv = cv)
 
-# Results for logisticregression 
-#               precision    recall  f1-score   support
-#          0.0       0.69      0.52      0.59      7946
-#          1.0       0.72      0.84      0.77     11403
-
-#     accuracy                           0.71     19349
-#    macro avg       0.70      0.68      0.68     19349
-# weighted avg       0.71      0.71      0.70     19349
-# ROC_AUC_score 0.6800966927532571 
-# Matthew Correlation Coefficient 0.383654882609942 
-
-# Results for decisiontreeclassifier 
-#               precision    recall  f1-score   support
-#          0.0       0.57      0.57      0.57      7946
-#          1.0       0.70      0.70      0.70     11403
-         
-#     accuracy                           0.65     19349
-#    macro avg       0.64      0.64      0.64     19349
-# weighted avg       0.65      0.65      0.65     19349
-# ROC_AUC_score 0.6357747404822064 
-# Matthew Correlation Coefficient 0.27173810833581175 
-
-# Results for mlpclassifier 
-#               precision    recall  f1-score   support
-#          0.0       0.76      0.47      0.58      7946
-#          1.0       0.71      0.89      0.79     11403
-
-#     accuracy                           0.72     19349
-#    macro avg       0.73      0.68      0.69     19349
-# weighted avg       0.73      0.72      0.70     19349
-# ROC_AUC_score 0.6832720331676685 
-# Matthew Correlation Coefficient 0.41243318828986597 
-
-# Results for linearsvc 
-#               precision    recall  f1-score   support
-#          0.0       0.70      0.51      0.59      7946
-#          1.0       0.71      0.85      0.77     11403
-
-#     accuracy                           0.71     19349
-#    macro avg       0.71      0.68      0.68     19349
-# weighted avg       0.71      0.71      0.70     19349
-# ROC_AUC_score 0.6795659683835811 
-# Matthew Correlation Coefficient 0.3849687551185018 
-
-# Results for sgdclassifier 
-#               precision    recall  f1-score   support
-#          0.0       0.85      0.27      0.41      7946
-#          1.0       0.65      0.97      0.78     11403
-
-#     accuracy                           0.68     19349
-#    macro avg       0.75      0.62      0.59     19349
-# weighted avg       0.73      0.68      0.63     19349
-# ROC_AUC_score 0.6179585127789373 
-# Matthew Correlation Coefficient 0.345069874905473 
-
-# Results for histgradientboostingclassifier 
-#               precision    recall  f1-score   support
-
-#          0.0       0.76      0.51      0.62      7946
-#          1.0       0.72      0.89      0.80     11403
-#     accuracy                           0.74     19349
-#    macro avg       0.74      0.70      0.71     19349
-# weighted avg       0.74      0.74      0.72     19349
-# ROC_AUC_score 0.7021821956189016 
-# Matthew Correlation Coefficient 0.4448685712061779 
-
-# Results for randomforestclassifier 
-#               precision    recall  f1-score   support
-#          0.0       0.75      0.54      0.63      7946
-#          1.0       0.73      0.87      0.80     11403
-
-#     accuracy                           0.74     19349
-#    macro avg       0.74      0.71      0.71     19349
-# weighted avg       0.74      0.74      0.73     19349
-# ROC_AUC_score 0.7081503450050535 
-# Matthew Correlation Coefficient 0.44730356761226053 
-
-# ----------------------------------------------------------------
-# ALL FEATURES (ONLY HistGradientBoosting, RandomForest)
-# ----------------------------------------------------------------
-
-# Results for histgradientboostingclassifier 
-#               precision    recall  f1-score   support
-#          0.0       0.76      0.53      0.62      7946
-#          1.0       0.73      0.89      0.80     11403
-
-#     accuracy                           0.74     19349
-#    macro avg       0.75      0.71      0.71     19349
-# weighted avg       0.74      0.74      0.73     19349
-# ROC_AUC_score 0.7071173704978129 
-# Matthew Correlation Coefficient 0.4519420688752592 
-
-# Results for randomforestclassifier 
-#               precision    recall  f1-score   support
-
-#          0.0       0.77      0.54      0.64      7946
-#          1.0       0.74      0.89      0.80     11403
-
-#     accuracy                           0.75     19349
-#    macro avg       0.75      0.72      0.72     19349
-# weighted avg       0.75      0.75      0.74     19349
-# ROC_AUC_score 0.7150649646227532 
-# Matthew Correlation Coefficient 0.46606905401973525 
-
-# ----------------------------------------------------------------
-# ALL FEATURES LGBMClassifier
-# ----------------------------------------------------------------
-
-#               precision    recall  f1-score   support
-#          0.0       0.77      0.50      0.61      7946
-#          1.0       0.72      0.90      0.80     11403
-
-#     accuracy                           0.73     19349
-#    macro avg       0.75      0.70      0.70     19349
-# weighted avg       0.74      0.73      0.72     19349
-# 0.44131741734775404
-# 0.6984747678240912
-
+scoreMultipleEstimators(fitted_scikit2, X_test_small, y_test_small)
 
 # %% tune HistGB
 hgbc = HistGradientBoostingClassifier(random_state = 0,)
@@ -216,56 +97,56 @@ print(gs.best_params_, gs.best_score_)
 
 # %% HistGB results
 # can use the gridsearch predictor directly/train a new model with new params
-pred = gs.predict(X_test)
-
-print(classification_report(y_test, pred)) 
-print(matthews_corrcoef(y_test, pred))
-print(roc_auc_score(y_test, pred))
+evaluateEstimator(gs, X_test, y_test, )
 
 #               precision    recall  f1-score   support
+
 #          0.0       0.76      0.53      0.63      7946
 #          1.0       0.73      0.89      0.80     11403
 
 #     accuracy                           0.74     19349
 #    macro avg       0.75      0.71      0.71     19349
 # weighted avg       0.74      0.74      0.73     19349
-
-# 0.4535971220074581
-# 0.7081375481553897
+ 
+# ROC_AUC_score 0.7081375481553897
+# Matthew Correlation Coefficient 0.4535971220074581
+# Cohen's Kappa 0.43650131848895246
 
 # %% tune RandomForest
 # class_weight = 'balanced_subsample' is slightly worse
 rf = RandomForestClassifier(random_state = 0, n_jobs = -1)
 rf_params = {'max_depth': [None, 15, 30],
              'max_features': ['sqrt', 'log2'],
-             'n_estimators': [100, 200],}
+             'n_estimators': [100, 150],}
 
 gs_rf = HalvingGridSearchCV(rf, param_grid = rf_params,
                          random_state = 0, n_jobs = -1,
-                         verbose = 1)
+                         verbose = 1, scoring = 'accuracy')
 gs_rf.fit(X_train, y_train)
 print(gs_rf.best_params_, gs_rf.best_score_)
-# {'max_depth': 30, 'max_features': 'sqrt', 'n_estimators': 200} 
+# for scoring = 'accuracy' (default)
+# {'max_depth': 30, 'max_features': 'sqrt', 'n_estimators': 150} 
 # 0.7498966230186079
 
-# %%
-rf_pred = gs_rf.predict(X_test)
+# for scoring = 'f1_weighted'
+# {'max_depth': 30, 'max_features': 'sqrt', 'n_estimators': 150} 
+# 0.7394069695430456
 
-print(classification_report(y_test, rf_pred)) 
-print(matthews_corrcoef(y_test, rf_pred))
-print(roc_auc_score(y_test, rf_pred))
+# %%
+evaluateEstimator(gs_rf, X_test, y_test,)
 
 #               precision    recall  f1-score   support
 
-#          0.0       0.78      0.54      0.64      7946
-#          1.0       0.74      0.90      0.81     11403
+#          0.0       0.78      0.55      0.64      7946
+#          1.0       0.74      0.89      0.81     11403
 
 #     accuracy                           0.75     19349
 #    macro avg       0.76      0.72      0.73     19349
 # weighted avg       0.76      0.75      0.74     19349
 
-# 0.4780508317705175
-# 0.7193105443679415
+# ROC_AUC_score: 0.720529175283157
+# Matthew Correlation Coefficient: 0.4792806679725238
+# Cohen's Kappa: 0.46201741511192207
 
 # %% tune LightGBM
 gbmc = lgb.LGBMClassifier(random_state = 0, n_jobs = -1)
@@ -285,20 +166,20 @@ print(gs_gbm.best_params_, gs_gbm.best_score_)
 # 0.7434089145616001
 
 # %% Results from tuned LightGBM
-pred = gs_gbm.predict(X_test)
-print(classification_report(y_test, pred)) 
-print(matthews_corrcoef(y_test, pred))
-print(roc_auc_score(y_test, pred))
+evaluateEstimator(gs_gbm, X_test, y_test)
 
 #               precision    recall  f1-score   support
+
 #          0.0       0.76      0.53      0.63      7946
 #          1.0       0.73      0.88      0.80     11403
 
 #     accuracy                           0.74     19349
 #    macro avg       0.75      0.71      0.71     19349
 # weighted avg       0.74      0.74      0.73     19349
-# 0.452742539581331
-# 0.7082178388680287
+
+# ROC_AUC_score 0.7082178388680287
+# Matthew Correlation Coefficient 0.452742539581331
+# Cohen's Kappa 0.4363031428560906
 
 # %% Training models with tuned parameters
 hgb_tuned = HistGradientBoostingClassifier(
@@ -313,7 +194,8 @@ rf_tuned = RandomForestClassifier(
     n_jobs = -1,
     max_depth = 30,
     max_features = 'sqrt',
-    n_estimators = 200,)
+    n_estimators = 200,
+    class_weight = {0: 1.2, 1:1})
 rf_tuned.fit(X_train, y_train)
 
 gbm = lgb.LGBMClassifier(
@@ -326,10 +208,12 @@ gbm = lgb.LGBMClassifier(
     n_jobs = -1,)
 gbm.fit(X_train, y_train)
 
+
 # %% Plot confusion matrices
 fig, axes = plt.subplots(nrows = 1, ncols = 3, sharex = True, sharey = True,
                          figsize = (14, 4))
-preds = [hgb_tuned.predict(X_test), rf_tuned.predict(X_test), gbm.predict(X_test)]
+preds = [hgb_tuned.predict(X_test), rf_tuned.predict(X_test), 
+         gbm.predict(X_test)]
 names = ['HistGradientBoosting', 'RandomForest', 'LightGBM']
 
 for ax, pred, name in zip(axes.ravel(), preds, names):
@@ -418,3 +302,6 @@ sns.barplot(x = important_vars.values, y = important_vars.index, ax = ax)
 ax.set_title('Feature Importances')
 ax.set_yticklabels(labels = important_vars.index, fontsize = 8.5)
 
+# %% Save and load model
+joblib.dump(rf_tuned, filename = 'rf_tuned_model', compress = 8)
+model = joblib.load('rf_tuned_model')

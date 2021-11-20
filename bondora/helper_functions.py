@@ -6,10 +6,9 @@ from time import time
 from sklearn.model_selection import cross_validate, \
     StratifiedShuffleSplit
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.experimental import enable_hist_gradient_boosting
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import confusion_matrix, classification_report, \
-    recall_score, roc_auc_score, matthews_corrcoef
+    recall_score, roc_auc_score, matthews_corrcoef, cohen_kappa_score
 from sklearn.pipeline import make_pipeline
 
 from imblearn.under_sampling import RandomUnderSampler
@@ -137,14 +136,22 @@ def scoreBalancedEstimator(estimator, X_test, y_test):
     '''
     name = estimator.steps[-1][0]
     pred = estimator.predict(X_test)
-    print(f'Results for {name}', '\n')
-    print(classification_report(y_true = y_test, y_pred = pred), '\n')
-    print('ROC_AUC_score', roc_auc_score(y_test, pred), '\n')
-    print('Matthew Correlation Coefficient', 
-          matthews_corrcoef(y_test, pred), '\n')
+    print(f'Results for {name}')
+    print(classification_report(y_true = y_test, y_pred = pred))
+    
+    try:
+        target = estimator.predict_proba(X_test)[:, 1]
+    except AttributeError:
+        target = estimator.decision_function(X_test)
+        
+    print('ROC_AUC_score:', roc_auc_score(y_test, 
+                                          target))
+    print("Matthew's corrcoef:", 
+          matthews_corrcoef(y_test, pred))
+    print("Cohen's Kappa:", cohen_kappa_score(y_test, pred))
     return pred
 
-def scoreMultipleEstimators(X_test, y_test, fitted_estimators):
+def scoreMultipleEstimators(fitted_estimators, X_test, y_test):
     ''' 
     for each estimator, call scoreBalancedEstimator
     return predictions for later use (other metrics)
@@ -153,7 +160,26 @@ def scoreMultipleEstimators(X_test, y_test, fitted_estimators):
     for estimator in fitted_estimators:
         predicted = scoreBalancedEstimator(estimator, X_test, y_test)
         list_of_prediction_arrays.append(predicted)
-    return list_of_prediction_arrays
+    return None
+
+def evaluateEstimators(estimators, X_test, y_test):
+    for e in estimators:
+        evaluateEstimators(e)
+
+def evaluateEstimator(estimator, X_test, y_test):
+    pred = estimator.predict(X_test)
+    print(f'Results for {estimator.__class__.__name__}')
+    print(classification_report(y_true = y_test, y_pred = pred))
+    try:
+        target = estimator.predict_proba(X_test)[:, 1]
+    except AttributeError:
+        target = estimator.decision_function(X_test)
+
+    print('ROC_AUC_score:', roc_auc_score(y_test, target))
+    print("Matthew's corrcoef:", 
+          matthews_corrcoef(y_test, pred))
+    print("Cohen's Kappa:", cohen_kappa_score(y_test, pred))
+    return None
 
 def showConfusionMatrixWithHeatmap(y_test, predictions, name = None):
     confused = confusion_matrix(y_true = y_test, y_pred = predictions)
